@@ -139,8 +139,12 @@ async fn handle_connection(
                             let len = binary_empty_rdb.len();
                             resp_parser
                                 .write_all(
-                                    [format!("${}\r\n", len).as_bytes(), &binary_empty_rdb]
-                                        .concat(),
+                                    [
+                                        format!("${}\r\n", len).as_bytes(),
+                                        b"\r\n",
+                                        &binary_empty_rdb,
+                                    ]
+                                    .concat(),
                                 )
                                 .await
                                 .unwrap();
