@@ -5,11 +5,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
-use crate::command::Command;
 use crate::resp::RespValue;
 use crate::storage::Storage;
 
-mod command;
 mod resp;
 mod storage;
 
@@ -193,6 +191,7 @@ async fn handle_command(
             },
             _ => RespValue::Error("wrong number of arguments".to_string()),
         },
+        "replconf" => RespValue::BulkString(Some(b"OK".to_vec())),
         _ => RespValue::Error("unknown command".to_string()),
     }
 }
