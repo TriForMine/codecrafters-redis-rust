@@ -48,55 +48,7 @@ async fn handle_connection(stream: tokio::net::TcpStream, storage: Arc<RwLock<St
             let value = resp_parser.parse().await.unwrap();
 
             let result = match parse_command(value) {
-                Ok((command, args)) => match command.as_str() {
-                    "ping" => RespValue::SimpleString("PONG".to_string()),
-                    "echo" => args.first().unwrap().clone(),
-                    "set" => match args.as_slice() {
-                        [key, value] => {
-                            let mut storage = storage.write().await;
-                            storage.set(
-                                String::from_utf8(key.to_bytes().clone()).unwrap(),
-                                value.clone(),
-                                None,
-                            );
-                            RespValue::SimpleString("OK".to_string())
-                        }
-                        [key, value, argument, expiry] => {
-                            if let RespValue::BulkString(Some(s)) = argument {
-                                if s.to_ascii_lowercase() == b"px" {
-                                    if let RespValue::BulkString(Some(s)) = expiry {
-                                        let expiry = String::from_utf8(s.clone())
-                                            .unwrap()
-                                            .parse::<usize>()
-                                            .unwrap();
-                                        let mut storage = storage.write().await;
-                                        storage.set(
-                                            String::from_utf8(key.to_bytes().clone()).unwrap(),
-                                            value.clone(),
-                                            Some(expiry),
-                                        );
-                                        RespValue::SimpleString("OK".to_string())
-                                    } else {
-                                        RespValue::Error("unknown argument".to_string())
-                                    }
-                                } else {
-                                    RespValue::Error("unknown argument".to_string())
-                                }
-                            } else {
-                                RespValue::Error("unknown argument".to_string())
-                            }
-                        }
-                        _ => RespValue::Error("wrong number of arguments".to_string()),
-                    },
-                    "get" => {
-                        let mut storage = storage.write().await;
-                        match storage.get(&String::from_utf8(args[0].to_bytes().clone()).unwrap()) {
-                            Some(value) => value.clone(),
-                            None => RespValue::Null,
-                        }
-                    }
-                    _ => RespValue::Error("unknown command".to_string()),
-                },
+                Ok((command, args)) => handle_command(command, args, storage.clone()).await,
                 Err(e) => RespValue::Error(e.to_string()),
             };
 
@@ -117,5 +69,72 @@ fn parse_command(value: RespValue) -> Result<(String, Vec<RespValue>), anyhow::E
             Ok((command, args))
         }
         _ => Err(anyhow!("Expected array")),
+    }
+}
+
+async fn handle_command(
+    command: String,
+    args: Vec<RespValue>,
+    storage: Arc<RwLock<Storage>>,
+) -> RespValue {
+    match command.as_str() {
+        "ping" => RespValue::SimpleString("PONG".to_string()),
+        "echo" => args.first().unwrap().clone(),
+        "set" => match args.as_slice() {
+            [key, value] => {
+                let mut storage = storage.write().await;
+                storage.set(
+                    String::from_utf8(key.to_bytes().clone()).unwrap(),
+                    value.clone(),
+                    None,
+                );
+                RespValue::SimpleString("OK".to_string())
+            }
+            [key, value, RespValue::BulkString(Some(argument)), RespValue::BulkString(Some(expiry))] => {
+                match String::from_utf8(argument.clone())
+                    .unwrap()
+                    .to_ascii_lowercase()
+                    .as_str()
+                {
+                    "px" => {
+                        let expiry = String::from_utf8(expiry.clone())
+                            .unwrap()
+                            .parse::<usize>()
+                            .unwrap();
+                        let mut storage = storage.write().await;
+                        storage.set(
+                            String::from_utf8(key.to_bytes().clone()).unwrap(),
+                            value.clone(),
+                            Some(expiry),
+                        );
+                        RespValue::SimpleString("OK".to_string())
+                    }
+                    _ => RespValue::Error("unknown argument".to_string()),
+                }
+            }
+            _ => RespValue::Error("wrong number of arguments".to_string()),
+        },
+        "get" => {
+            let mut storage = storage.write().await;
+            match storage.get(&String::from_utf8(args[0].to_bytes().clone()).unwrap()) {
+                Some(value) => value.clone(),
+                None => RespValue::Null,
+            }
+        }
+        "info" => match args.as_slice() {
+            [] => RespValue::BulkString(Some(b"# Server\nversion:0.0.1\n".to_vec())),
+            [RespValue::BulkString(Some(key))] => match String::from_utf8(key.clone())
+                .unwrap()
+                .to_ascii_lowercase()
+                .as_str()
+            {
+                "replication" => {
+                    RespValue::BulkString(Some(b"# Replication\nrole:master\n".to_vec()))
+                }
+                _ => RespValue::Error("unknown argument".to_string()),
+            },
+            _ => RespValue::Error("wrong number of arguments".to_string()),
+        },
+        _ => RespValue::Error("unknown command".to_string()),
     }
 }
