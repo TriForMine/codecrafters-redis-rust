@@ -1,5 +1,5 @@
 use tokio::{net::TcpStream, io::{AsyncReadExt, AsyncWriteExt}};
-use bytes::{Buf, BytesMut};
+use bytes::{BytesMut};
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
@@ -70,7 +70,6 @@ impl RespParser {
 
 
 fn parse_single(buffer: BytesMut) -> Result<(RespValue, usize)> {
-    println!("buffer: {:?}", String::from_utf8(buffer.to_vec()).unwrap());
     match buffer[0] {
         b'+' => parse_simple_string(&buffer[1..]),
         b'-' => parse_error(&buffer[1..]),

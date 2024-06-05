@@ -21,8 +21,6 @@ async fn main() {
                     loop {
                         let value = resp_parser.parse().await.unwrap();
 
-                        println!("value: {:?}", value);
-
                         let result = match parse_command(value) {
                             Ok((command, args)) => {
                                 match command.as_str() {
