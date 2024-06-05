@@ -67,6 +67,7 @@ impl RespParser {
 
     pub async fn write(&mut self, resp: RespValue) -> Result<()> {
         self.stream.write_all(&resp.to_bytes()).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 

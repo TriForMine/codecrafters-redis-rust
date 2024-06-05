@@ -129,8 +129,8 @@ async fn handle_connection(
 
             let (command, result) = match parse_command(value) {
                 Ok((command, args)) => (
-                    command,
-                    handle_command(command.clone(), args, storage.clone(), settings.clone()).await,
+                    command.clone(),
+                    handle_command(command, args, storage.clone(), settings.clone()).await,
                 ),
                 Err(e) => ("".to_string(), RespValue::Error(e.to_string())),
             };
