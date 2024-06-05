@@ -150,7 +150,7 @@ async fn handle_command(
                     };
 
                     RespValue::BulkString(Some(Vec::from(
-                        format!("# Replication\nrole:{}\n", role).as_bytes(),
+                        format!("# Replication\nrole:{}\nmaster_replid:8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb\nmaster_repl_offset:0\n", role).as_bytes(),
                     )))
                 }
                 _ => RespValue::Error("unknown argument".to_string()),
