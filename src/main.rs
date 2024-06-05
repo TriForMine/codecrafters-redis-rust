@@ -101,15 +101,17 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-fn decode_hex_string(str: &str) -> Result<Vec<u8>, anyhow::Error> {
-    let mut result = Vec::new();
-    let mut i = 0;
-    while i < str.len() {
-        let byte = u8::from_str_radix(&str[i..i + 2], 16)?;
-        result.push(byte);
-        i += 2;
+fn decode_hex_string(hex: &str) -> Result<Vec<u8>, anyhow::Error> {
+    if hex.len() % 2 != 0 {
+        return Err(anyhow::anyhow!("Invalid hex string length"));
     }
-    Ok(result)
+    let mut binary_data = Vec::new();
+    for i in (0..hex.len()).step_by(2) {
+        let byte_str = &hex[i..i + 2];
+        let byte = u8::from_str_radix(byte_str, 16)?;
+        binary_data.push(byte);
+    }
+    Ok(binary_data)
 }
 
 async fn handle_connection(
@@ -139,12 +141,8 @@ async fn handle_connection(
                             let len = binary_empty_rdb.len();
                             resp_parser
                                 .write_all(
-                                    [
-                                        format!("${}\r\n", len).as_bytes(),
-                                        b"\r\n",
-                                        &binary_empty_rdb,
-                                    ]
-                                    .concat(),
+                                    [format!("${}\r\n", len).as_bytes(), &binary_empty_rdb]
+                                        .concat(),
                                 )
                                 .await
                                 .unwrap();
