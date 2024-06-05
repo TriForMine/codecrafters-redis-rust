@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
@@ -46,6 +46,8 @@ async fn main() -> Result<(), anyhow::Error> {
             )
             .await?;
         stream.flush().await?;
+        stream.read(&mut [0; 1024]).await?;
+
         stream
             .write_all(
                 &RespValue::Array(vec![
@@ -57,6 +59,8 @@ async fn main() -> Result<(), anyhow::Error> {
             )
             .await?;
         stream.flush().await?;
+        stream.read(&mut [0; 1024]).await?;
+
         stream
             .write_all(
                 &RespValue::Array(vec![
@@ -68,6 +72,7 @@ async fn main() -> Result<(), anyhow::Error> {
             )
             .await?;
         stream.flush().await?;
+        stream.read(&mut [0; 1024]).await?;
     }
 
     loop {
