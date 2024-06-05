@@ -70,8 +70,9 @@ impl RespParser {
         Ok(())
     }
 
-    pub async fn write_all(&mut self, data: Vec<u8>) {
-        self.stream.write_all(&data).await?
+    pub async fn write_all(&mut self, data: Vec<u8>) -> Result<()> {
+        self.stream.write_all(&data).await?;
+        Ok(())
     }
 }
 
