@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -6,13 +5,15 @@ use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 
 use crate::resp::RespValue;
+use crate::storage::Storage;
 
 mod resp;
+mod storage;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let listener = TcpListener::bind("127.0.0.1:6379").await.unwrap();
-    let storage = Arc::new(RwLock::new(HashMap::new()));
+    let storage = Arc::new(RwLock::new(Storage::new()));
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -24,10 +25,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 }
 
-async fn handle_connection(
-    stream: tokio::net::TcpStream,
-    storage: Arc<RwLock<HashMap<String, RespValue>>>,
-) {
+async fn handle_connection(stream: tokio::net::TcpStream, storage: Arc<RwLock<Storage>>) {
     println!("accepted new connection");
 
     tokio::spawn(async move {
@@ -40,16 +38,45 @@ async fn handle_connection(
                 Ok((command, args)) => match command.as_str() {
                     "ping" => RespValue::SimpleString("PONG".to_string()),
                     "echo" => args.first().unwrap().clone(),
-                    "set" => {
-                        let mut storage = storage.write().await;
-                        storage.insert(
-                            String::from_utf8(args[0].to_bytes().clone()).unwrap(),
-                            args[1].clone(),
-                        );
-                        RespValue::SimpleString("OK".to_string())
-                    }
+                    "set" => match args.as_slice() {
+                        [key, value] => {
+                            let mut storage = storage.write().await;
+                            storage.set(
+                                String::from_utf8(key.to_bytes().clone()).unwrap(),
+                                value.clone(),
+                                None,
+                            );
+                            RespValue::SimpleString("OK".to_string())
+                        }
+                        [key, value, argument, expiry] => {
+                            if let RespValue::BulkString(Some(s)) = argument {
+                                if s.to_ascii_lowercase() == b"px" {
+                                    if let RespValue::BulkString(Some(s)) = expiry {
+                                        let expiry = String::from_utf8(s.clone())
+                                            .unwrap()
+                                            .parse::<usize>()
+                                            .unwrap();
+                                        let mut storage = storage.write().await;
+                                        storage.set(
+                                            String::from_utf8(key.to_bytes().clone()).unwrap(),
+                                            value.clone(),
+                                            Some(expiry),
+                                        );
+                                        RespValue::SimpleString("OK".to_string())
+                                    } else {
+                                        RespValue::Error("unknown argument".to_string())
+                                    }
+                                } else {
+                                    RespValue::Error("unknown argument".to_string())
+                                }
+                            } else {
+                                RespValue::Error("unknown argument".to_string())
+                            }
+                        }
+                        _ => RespValue::Error("wrong number of arguments".to_string()),
+                    },
                     "get" => {
-                        let storage = storage.read().await;
+                        let mut storage = storage.write().await;
                         match storage.get(&String::from_utf8(args[0].to_bytes().clone()).unwrap()) {
                             Some(value) => value.clone(),
                             None => RespValue::Null,

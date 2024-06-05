@@ -106,7 +106,7 @@ fn parse_error(buffer: &[u8]) -> Result<(RespValue, usize)> {
 fn parse_integer(buffer: &[u8]) -> Result<(RespValue, usize)> {
     if let Some((line, len)) = read_until_crlf(buffer) {
         let s = String::from_utf8(line[1..len - 2].to_vec())?;
-        let i = s.parse()?;
+        let i = s.parse::<i64>()?;
         Ok((RespValue::Integer(i), len))
     } else {
         Err(anyhow::anyhow!("incomplete response"))
