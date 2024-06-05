@@ -12,10 +12,17 @@ mod storage;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    let port = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "6379".to_string())
-        .parse::<u16>()?;
+    let args = std::env::args().collect::<Vec<String>>();
+    let args_hash = args
+        .iter()
+        .enumerate()
+        .map(|(i, arg)| (arg.clone(), i))
+        .collect::<std::collections::HashMap<String, usize>>();
+
+    let port = args_hash
+        .get("--port")
+        .map(|i| args[i + 1].parse::<u16>().unwrap())
+        .unwrap_or(6379);
 
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await?;
 
