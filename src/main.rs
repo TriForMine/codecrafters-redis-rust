@@ -43,7 +43,31 @@ async fn main() -> Result<(), anyhow::Error> {
         let port = port.trim().parse::<u16>().unwrap();
         let mut stream = TcpStream::connect(format!("{}:{}", host, port)).await?;
         stream
-            .write_all(Command::Ping.to_bytes().as_slice())
+            .write_all(
+                &RespValue::Array(vec![RespValue::BulkString(Some(b"PING".to_vec()))]).to_bytes(),
+            )
+            .await?;
+
+        stream
+            .write_all(
+                &RespValue::Array(vec![
+                    RespValue::BulkString(Some(b"REPLCONF".to_vec())),
+                    RespValue::BulkString(Some(b"listening-port".to_vec())),
+                    RespValue::BulkString(Some(port.to_string().into_bytes())),
+                ])
+                .to_bytes(),
+            )
+            .await?;
+
+        stream
+            .write_all(
+                &RespValue::Array(vec![
+                    RespValue::BulkString(Some(b"REPLCONF".to_vec())),
+                    RespValue::BulkString(Some(b"capa".to_vec())),
+                    RespValue::BulkString(Some(b"psync2".to_vec())),
+                ])
+                .to_bytes(),
+            )
             .await?;
     }
 
