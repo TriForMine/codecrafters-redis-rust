@@ -10,6 +10,11 @@ use crate::storage::Storage;
 mod resp;
 mod storage;
 
+struct Settings {
+    port: u16,
+    replicaof: Option<String>,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let args = std::env::args().collect::<Vec<String>>();
@@ -25,20 +30,27 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap_or(6379);
 
     let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await?;
+    let replicaof = args_hash.get("--replicaof").map(|i| args[i + 1].clone());
 
+    let settings = Arc::new(Settings { port, replicaof });
     let storage = Arc::new(RwLock::new(Storage::new()));
 
     loop {
         let (stream, _) = listener.accept().await?;
 
         let storage = storage.clone();
+        let settings = settings.clone();
         tokio::spawn(async move {
-            handle_connection(stream, storage).await;
+            handle_connection(stream, storage, settings).await;
         });
     }
 }
 
-async fn handle_connection(stream: tokio::net::TcpStream, storage: Arc<RwLock<Storage>>) {
+async fn handle_connection(
+    stream: tokio::net::TcpStream,
+    storage: Arc<RwLock<Storage>>,
+    settings: Arc<Settings>,
+) {
     println!("accepted new connection");
 
     tokio::spawn(async move {
@@ -48,7 +60,9 @@ async fn handle_connection(stream: tokio::net::TcpStream, storage: Arc<RwLock<St
             let value = resp_parser.parse().await.unwrap();
 
             let result = match parse_command(value) {
-                Ok((command, args)) => handle_command(command, args, storage.clone()).await,
+                Ok((command, args)) => {
+                    handle_command(command, args, storage.clone(), settings.clone()).await
+                }
                 Err(e) => RespValue::Error(e.to_string()),
             };
 
@@ -76,6 +90,7 @@ async fn handle_command(
     command: String,
     args: Vec<RespValue>,
     storage: Arc<RwLock<Storage>>,
+    settings: Arc<Settings>,
 ) -> RespValue {
     match command.as_str() {
         "ping" => RespValue::SimpleString("PONG".to_string()),
@@ -129,7 +144,14 @@ async fn handle_command(
                 .as_str()
             {
                 "replication" => {
-                    RespValue::BulkString(Some(b"# Replication\nrole:master\n".to_vec()))
+                    let role = match settings.replicaof {
+                        Some(_) => "slave",
+                        None => "master",
+                    };
+
+                    RespValue::BulkString(Some(Vec::from(
+                        format!("# Replication\nrole:{}\n", role).as_bytes(),
+                    )))
                 }
                 _ => RespValue::Error("unknown argument".to_string()),
             },
