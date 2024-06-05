@@ -16,7 +16,8 @@ async fn main() -> Result<(), anyhow::Error> {
         .nth(1)
         .unwrap_or_else(|| "6379".to_string())
         .parse::<u16>()?;
-    let listener = TcpListener::bind(format!("127.0.0.1:{port}"));
+
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await?;
 
     let storage = Arc::new(RwLock::new(Storage::new()));
 
