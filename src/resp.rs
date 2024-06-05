@@ -1,6 +1,9 @@
-use tokio::{net::TcpStream, io::{AsyncReadExt, AsyncWriteExt}};
-use bytes::{BytesMut};
 use anyhow::Result;
+use bytes::BytesMut;
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
 
 #[derive(Debug, Clone)]
 pub enum RespValue {
@@ -9,6 +12,7 @@ pub enum RespValue {
     Integer(i64),
     BulkString(Option<Vec<u8>>),
     Array(Vec<RespValue>),
+    Null,
 }
 
 impl RespValue {
@@ -31,6 +35,7 @@ impl RespValue {
                 }
                 resp
             }
+            RespValue::Null => "$-1\r\n".bytes().collect(),
         }
     }
 }
@@ -67,7 +72,6 @@ impl RespParser {
         Ok(())
     }
 }
-
 
 fn parse_single(buffer: BytesMut) -> Result<(RespValue, usize)> {
     match buffer[0] {
