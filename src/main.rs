@@ -88,12 +88,6 @@ async fn main() -> Result<(), anyhow::Error> {
         stream.read(&mut [0; 1024]).await?;
 
         stream.flush().await?;
-
-        let hardcoded_empty_rdb_file_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
-        let binary_empty_rdb = decode_hex_string(hardcoded_empty_rdb_file_hex)?;
-        let len = binary_empty_rdb.len();
-        stream.write_all(format!("${}\r\n", len).as_bytes()).await?;
-        stream.write_all(&binary_empty_rdb).await?;
     }
 
     loop {
@@ -133,7 +127,26 @@ async fn handle_connection(
 
             let result = match parse_command(value) {
                 Ok((command, args)) => {
-                    handle_command(command, args, storage.clone(), settings.clone()).await
+                    let res =
+                        handle_command(command.clone(), args, storage.clone(), settings.clone())
+                            .await;
+
+                    match command.to_lowercase().as_str() {
+                        "psync" => {
+                            let hardcoded_empty_rdb_file_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
+                            let binary_empty_rdb = decode_hex_string(hardcoded_empty_rdb_file_hex)?;
+                            let len = binary_empty_rdb.len();
+                            resp_parser
+                                .write_all(
+                                    [format!("${}\r\n", len).as_bytes(), &binary_empty_rdb]
+                                        .concat(),
+                                )
+                                .await?;
+                        }
+                        _ => {}
+                    }
+
+                    res
                 }
                 Err(e) => RespValue::Error(e.to_string()),
             };
@@ -163,7 +176,7 @@ async fn handle_command(
     args: Vec<RespValue>,
     storage: Arc<RwLock<Storage>>,
     settings: Arc<Settings>,
-) -> RespValue {
+) -> (RespValue) {
     match command.as_str() {
         "ping" => RespValue::SimpleString("PONG".to_string()),
         "echo" => args.first().unwrap().clone(),
@@ -205,7 +218,7 @@ async fn handle_command(
             let mut storage = storage.write().await;
             match storage.get(&String::from_utf8(args[0].to_bytes().clone()).unwrap()) {
                 Some(value) => value.clone(),
-                None => RespValue::Null,
+                None => RespValue::BulkString(None),
             }
         }
         "info" => match args.as_slice() {

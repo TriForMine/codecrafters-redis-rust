@@ -12,7 +12,6 @@ pub enum RespValue {
     Integer(i64),
     BulkString(Option<Vec<u8>>),
     Array(Vec<RespValue>),
-    Null,
 }
 
 impl RespValue {
@@ -35,7 +34,6 @@ impl RespValue {
                 }
                 resp
             }
-            RespValue::Null => "$-1\r\n".bytes().collect(),
         }
     }
 }
@@ -70,6 +68,10 @@ impl RespParser {
     pub async fn write(&mut self, resp: RespValue) -> Result<()> {
         self.stream.write_all(&resp.to_bytes()).await?;
         Ok(())
+    }
+
+    pub async fn write_all(&mut self, data: Vec<u8>) {
+        self.stream.write_all(&data).await?
     }
 }
 
