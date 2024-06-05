@@ -45,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 &RespValue::Array(vec![RespValue::BulkString(Some(b"PING".to_vec()))]).to_bytes(),
             )
             .await?;
-
+        stream.flush().await?;
         stream
             .write_all(
                 &RespValue::Array(vec![
@@ -56,7 +56,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 .to_bytes(),
             )
             .await?;
-
+        stream.flush().await?;
         stream
             .write_all(
                 &RespValue::Array(vec![
@@ -67,6 +67,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 .to_bytes(),
             )
             .await?;
+        stream.flush().await?;
     }
 
     loop {
