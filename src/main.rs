@@ -73,6 +73,19 @@ async fn main() -> Result<(), anyhow::Error> {
             .await?;
         stream.flush().await?;
         stream.read(&mut [0; 1024]).await?;
+
+        stream
+            .write_all(
+                &RespValue::Array(vec![
+                    RespValue::BulkString(Some(b"PSYNC".to_vec())),
+                    RespValue::BulkString(Some(b"?".to_vec())),
+                    RespValue::BulkString(Some(b"-1".to_vec())),
+                ])
+                .to_bytes(),
+            )
+            .await?;
+        stream.flush().await?;
+        stream.read(&mut [0; 1024]).await?;
     }
 
     loop {
@@ -198,6 +211,9 @@ async fn handle_command(
             _ => RespValue::Error("wrong number of arguments".to_string()),
         },
         "replconf" => RespValue::BulkString(Some(b"OK".to_vec())),
+        "psync" => RespValue::BulkString(Some(
+            b"+FULLRESYNC 8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb 0\n".to_vec(),
+        )),
         _ => RespValue::Error("unknown command".to_string()),
     }
 }
