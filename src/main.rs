@@ -37,9 +37,9 @@ async fn main() -> Result<(), anyhow::Error> {
     let storage = Arc::new(RwLock::new(Storage::new()));
 
     if let Some(replicaof) = &settings.replicaof {
-        let (host, port) = replicaof.split_at(replicaof.find(' ').unwrap());
-        let port = port.trim().parse::<u16>().unwrap();
-        let mut stream = TcpStream::connect(format!("{}:{}", host, port)).await?;
+        let (host, replica_port) = replicaof.split_at(replicaof.find(' ').unwrap());
+        let replica_port = replica_port.trim().parse::<u16>().unwrap();
+        let mut stream = TcpStream::connect(format!("{}:{}", host, replica_port)).await?;
         stream
             .write_all(
                 &RespValue::Array(vec![RespValue::BulkString(Some(b"PING".to_vec()))]).to_bytes(),
