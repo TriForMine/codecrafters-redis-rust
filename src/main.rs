@@ -1,12 +1,15 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use tokio::net::TcpListener;
+use tokio::io::AsyncWriteExt;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
 
+use crate::command::Command;
 use crate::resp::RespValue;
 use crate::storage::Storage;
 
+mod command;
 mod resp;
 mod storage;
 
@@ -34,6 +37,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let settings = Arc::new(Settings { port, replicaof });
     let storage = Arc::new(RwLock::new(Storage::new()));
+
+    if let Some(replicaof) = &settings.replicaof {
+        let (host, port) = replicaof.split_at(replicaof.find(' ').unwrap());
+        let port = port.trim().parse::<u16>().unwrap();
+        let mut stream = TcpStream::connect(format!("{}:{}", host, port)).await?;
+        stream
+            .write_all(Command::Ping.to_bytes().as_slice())
+            .await?;
+    }
 
     loop {
         let (stream, _) = listener.accept().await?;
