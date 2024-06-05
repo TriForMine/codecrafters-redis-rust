@@ -127,35 +127,28 @@ async fn handle_connection(
         loop {
             let value = resp_parser.parse().await.unwrap();
 
-            let result = match parse_command(value) {
-                Ok((command, args)) => {
-                    let res =
-                        handle_command(command.clone(), args, storage.clone(), settings.clone())
-                            .await;
-
-                    match command.to_lowercase().as_str() {
-                        "psync" => {
-                            let hardcoded_empty_rdb_file_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
-                            let binary_empty_rdb =
-                                decode_hex_string(hardcoded_empty_rdb_file_hex).unwrap();
-                            let len = binary_empty_rdb.len();
-                            resp_parser
-                                .write_all(
-                                    [format!("${}\r\n", len).as_bytes(), &binary_empty_rdb]
-                                        .concat(),
-                                )
-                                .await
-                                .unwrap();
-                        }
-                        _ => {}
-                    }
-
-                    res
-                }
-                Err(e) => RespValue::Error(e.to_string()),
+            let (command, result) = match parse_command(value) {
+                Ok((command, args)) => (
+                    command,
+                    handle_command(command.clone(), args, storage.clone(), settings.clone()).await,
+                ),
+                Err(e) => ("".to_string(), RespValue::Error(e.to_string())),
             };
 
             resp_parser.write(result).await.unwrap();
+
+            match command.to_lowercase().as_str() {
+                "psync" => {
+                    let hardcoded_empty_rdb_file_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
+                    let binary_empty_rdb = decode_hex_string(hardcoded_empty_rdb_file_hex).unwrap();
+                    let len = binary_empty_rdb.len();
+                    resp_parser
+                        .write_all([format!("${}\r\n", len).as_bytes(), &binary_empty_rdb].concat())
+                        .await
+                        .unwrap();
+                }
+                _ => {}
+            }
         }
     });
 }
