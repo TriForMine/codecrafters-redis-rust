@@ -86,6 +86,14 @@ async fn main() -> Result<(), anyhow::Error> {
             .await?;
         stream.flush().await?;
         stream.read(&mut [0; 1024]).await?;
+
+        stream.flush().await?;
+
+        let hardcoded_empty_rdb_file_hex = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
+        let binary_empty_rdb = decode_hex_string(hardcoded_empty_rdb_file_hex)?;
+        let len = binary_empty_rdb.len();
+        stream.write_all(format!("${}\r\n", len).as_bytes()).await?;
+        stream.write_all(&binary_empty_rdb).await?;
     }
 
     loop {
@@ -97,6 +105,17 @@ async fn main() -> Result<(), anyhow::Error> {
             handle_connection(stream, storage, settings).await;
         });
     }
+}
+
+fn decode_hex_string(str: &str) -> Result<Vec<u8>, anyhow::Error> {
+    let mut result = Vec::new();
+    let mut i = 0;
+    while i < str.len() {
+        let byte = u8::from_str_radix(&str[i..i + 2], 16)?;
+        result.push(byte);
+        i += 2;
+    }
+    Ok(result)
 }
 
 async fn handle_connection(
